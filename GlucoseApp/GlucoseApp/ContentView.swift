@@ -296,27 +296,36 @@ struct ContentView: View {
     
     var body: some View {
         TabView {
+            DashboardView()
+                .environmentObject(activityVM)
+                .environmentObject(foodVM)
+                .environmentObject(sleepVM)
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+
+
             ActivityView()
                 .environmentObject(activityVM)
                 .tabItem {
                     Label("Activity", systemImage: "figure.run")
                 }
-            
+
             FoodView()
                 .environmentObject(foodVM)
                 .tabItem {
                     Label("Food", systemImage: "fork.knife")
                 }
-            
+
             SleepView()
                 .environmentObject(sleepVM)
                 .tabItem {
-                    Label("Sleep", systemImage: "moon.stars.fill")
+                    Label("Sleep", systemImage: "moon.zzz")
                 }
         }
-        .accentColor(.purple)
     }
 }
+
 
 // MARK: - Activity Views
 
