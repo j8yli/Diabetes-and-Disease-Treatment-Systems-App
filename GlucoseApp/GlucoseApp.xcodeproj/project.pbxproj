@@ -75,10 +75,10 @@
 		DF164EF62EA2C0A8008587BE = {
 			isa = PBXGroup;
 			children = (
-				DF164F012EA2C0A8008587BE /* GlucoseApp */,
 				DF164F122EA2C0AA008587BE /* GlucoseAppTests */,
 				DF164F1C2EA2C0AA008587BE /* GlucoseAppUITests */,
 				DF164F002EA2C0A8008587BE /* Products */,
+				DF164F012EA2C0A8008587BE /* GlucoseApp */,
 			);
 			sourceTree = "<group>";
 		};
