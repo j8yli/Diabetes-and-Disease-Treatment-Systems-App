@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-
 struct AddFoodView: View {
     @EnvironmentObject var vm: FoodViewModel
     @Environment(\.dismiss) var dismiss
@@ -22,6 +21,10 @@ struct AddFoodView: View {
     @State private var bgBefore: String
     @State private var bgAfter: String
     @State private var insulin: String
+    @State private var availableIngredients: [String] = []
+    @State private var selectedIngredients: Set<String> = []
+    @State private var showingIngredientPicker = false
+    @State private var searchText: String = ""
     
     let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
     
@@ -35,6 +38,14 @@ struct AddFoodView: View {
         _bgBefore = State(initialValue: editingEntry?.bloodGlucoseBefore != nil ? String(editingEntry!.bloodGlucoseBefore!) : "")
         _bgAfter = State(initialValue: editingEntry?.bloodGlucoseAfter != nil ? String(editingEntry!.bloodGlucoseAfter!) : "")
         _insulin = State(initialValue: editingEntry?.insulinDose != nil ? String(editingEntry!.insulinDose!) : "")
+    }
+    
+    var filteredIngredients: [String] {
+        if searchText.isEmpty {
+            return availableIngredients
+        } else {
+            return availableIngredients.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        }
     }
     
     var body: some View {
@@ -59,6 +70,50 @@ struct AddFoodView: View {
                             Image(systemName: "text.bubble.fill")
                                 .foregroundColor(.green)
                             TextField("Food Name", text: $foodName)
+                        }
+                        
+                        // Multiple Ingredient Selection
+                        HStack {
+                            Image(systemName: "list.bullet")
+                                .foregroundColor(.green)
+                            Button(action: {
+                                // Make sure ingredients are loaded before showing picker
+                                if availableIngredients.isEmpty {
+                                    let foodItems = FoodDataLoader.loadFoods()
+                                    availableIngredients = foodItems.map { $0.description }
+                                    print("🔄 Loading ingredients for picker: \(availableIngredients.count)")
+                                }
+                                showingIngredientPicker = true
+                            }) {
+                                HStack {
+                                    Text(selectedIngredients.isEmpty ? "Select Ingredients" : "\(selectedIngredients.count) selected")
+                                        .foregroundColor(selectedIngredients.isEmpty ? .gray : .primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                        
+                        // Display selected ingredients
+                        if !selectedIngredients.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(selectedIngredients).sorted(), id: \.self) { ingredient in
+                                    HStack {
+                                        Text("• \(ingredient)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Button(action: {
+                                            selectedIngredients.remove(ingredient)
+                                        }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.red)
+                                                .font(.caption)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } header: {
                         Text("Meal Details")
@@ -114,13 +169,21 @@ struct AddFoodView: View {
                             TextField("Insulin (units)", text: $insulin)
                                 .keyboardType(.decimalPad)
                         }
-                    } header: {
+                    }
+                    header: {
                         Text("Diabetes Management")
                             .foregroundColor(.green)
                     }
                     .listRowBackground(Color.white.opacity(0.8))
                 }
                 .scrollContentBackground(.hidden)
+                .onAppear {
+                    if availableIngredients.isEmpty {
+                        let foodItems = FoodDataLoader.loadFoods()
+                        availableIngredients = foodItems.map { $0.description }
+                        print("🍎 Loaded \(availableIngredients.count) ingredients in AddFoodView")
+                    }
+                }
             }
             .navigationTitle(editingEntry == nil ? "Log Food" : "Edit Food")
             .navigationBarTitleDisplayMode(.inline)
@@ -163,6 +226,87 @@ struct AddFoodView: View {
                     .disabled(foodName.isEmpty)
                     .foregroundColor(.green)
                     .fontWeight(.semibold)
+                }
+            }
+            .sheet(isPresented: $showingIngredientPicker) {
+                IngredientPickerView(
+                    selectedIngredients: $selectedIngredients
+                )
+                .onAppear {
+                    print("🔍 IngredientPickerView opened with \(availableIngredients.count) ingredients")
+                }
+            }
+        }
+    }
+}
+
+// Separate view for the ingredient picker
+struct IngredientPickerView: View {
+    @Binding var selectedIngredients: Set<String>
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var searchText = ""
+    @State private var availableIngredients: [String] = []
+    
+    var filteredIngredients: [String] {
+        if searchText.isEmpty {
+            return availableIngredients
+        } else {
+            return availableIngredients.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                if availableIngredients.isEmpty {
+                    ProgressView("Loading ingredients...")
+                } else {
+                    Text("Total ingredients: \(availableIngredients.count)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    
+                    List(filteredIngredients, id: \.self) { ingredient in
+                        HStack {
+                            Text(ingredient)
+                            Spacer()
+                            if selectedIngredients.contains(ingredient) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if selectedIngredients.contains(ingredient) {
+                                selectedIngredients.remove(ingredient)
+                            } else {
+                                selectedIngredients.insert(ingredient)
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search ingredients")
+            .navigationTitle("Select Ingredients")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.green)
+                    .fontWeight(.semibold)
+                }
+            }
+            .onAppear {
+                print("🎬 IngredientPickerView appeared")
+                if availableIngredients.isEmpty {
+                    let foodItems = FoodDataLoader.loadFoods()
+                    availableIngredients = foodItems.map { $0.description }
+                    print("📦 Loaded in picker: \(availableIngredients.count)")
                 }
             }
         }
