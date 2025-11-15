@@ -7,8 +7,43 @@
 
 import SwiftUI
 
+struct Nutrient: Codable {
+    let name: String
+    let number: String
+}
+
+struct FoodNutrient: Codable {
+    let nutrient: Nutrient
+    let amount: Double?
+}
+
 struct FoodItem: Codable {
     let description: String
+    let foodNutrients: [FoodNutrient]
+    
+    // Computed properties to extract macros per 100g
+    var carbsPer100g: Double {
+        foodNutrients.first { $0.nutrient.number == "205" }?.amount ?? 0
+    }
+    
+    var proteinPer100g: Double {
+        foodNutrients.first { $0.nutrient.number == "203" }?.amount ?? 0
+    }
+    
+    var fatPer100g: Double {
+        foodNutrients.first { $0.nutrient.number == "204" }?.amount ?? 0
+    }
+}
+
+// Make FoodItem Hashable - ADD THIS
+extension FoodItem: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(description)
+    }
+    
+    static func == (lhs: FoodItem, rhs: FoodItem) -> Bool {
+        lhs.description == rhs.description
+    }
 }
 
 struct FoodDataResponse: Codable {
