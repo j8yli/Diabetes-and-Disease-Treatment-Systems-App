@@ -13,33 +13,51 @@ struct DashboardView: View {
     @EnvironmentObject var foodVM: FoodViewModel
     @EnvironmentObject var sleepVM: SleepViewModel
     
-    // Today's date
-    private var today: Date { Date() }
+    // Selected date for the dashboard (defaults to today)
+    @State private var selectedDate: Date = Date()
     
-    // MARK: - Computed Stats
+    // MARK: - Helpers
+    
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    // MARK: - Computed Stats (for selectedDate)
     
     private var todayActivityDuration: Int {
         activityVM.entries
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: today) }
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
             .reduce(0) { $0 + $1.duration }
     }
     
     private var todayCalories: Int {
         foodVM.entries
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: today) }
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
             .reduce(0) { $0 + $1.carbs * 4 + $1.protein * 4 + $1.fat * 9 } // simple macro calories
     }
     
     private var todaySleepHours: Double {
         sleepVM.entries
-            .filter { Calendar.current.isDate($0.date, inSameDayAs: today) }
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
             .reduce(0) { $0 + $1.duration / 3600 } // in hours
     }
     
     private var todayBloodGlucose: String {
-        let allBGs = activityVM.entries.compactMap { $0.bloodGlucoseAfter } +
-                     foodVM.entries.compactMap { $0.bloodGlucoseAfter } +
-                     sleepVM.entries.compactMap { $0.bloodGlucoseWaking }
+        let activityBG = activityVM.entries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+            .compactMap { $0.bloodGlucoseAfter }
+        
+        let foodBG = foodVM.entries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+            .compactMap { $0.bloodGlucoseAfter }
+        
+        let sleepBG = sleepVM.entries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+            .compactMap { $0.bloodGlucoseWaking }
+        
+        let allBGs = activityBG + foodBG + sleepBG
         
         guard !allBGs.isEmpty else { return "--" }
         let avg = allBGs.reduce(0, +) / allBGs.count
@@ -51,24 +69,53 @@ struct DashboardView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    
+                    // Date Picker (simple calendar at top)
+                    DatePicker(
+                        "Select Date",
+                        selection: $selectedDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.compact)
+                    .padding(.top)
+                    
                     // Header
-                    Text("📊 Today's Overview")
+                    Text("📊 Overview for \(formattedDate(selectedDate))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .padding(.top)
                     
                     // Stat Cards
                     HStack(spacing: 16) {
-                        StatBadge(icon: "drop.fill", value: todayBloodGlucose, label: "Glucose", color: .red)
-                        StatBadge(icon: "moon.fill", value: String(format: "%.1f", todaySleepHours), label: "hrs sleep", color: .purple)
+                        StatBadge(
+                            icon: "drop.fill",
+                            value: todayBloodGlucose,
+                            label: "Glucose",
+                            color: .red
+                        )
+                        StatBadge(
+                            icon: "moon.fill",
+                            value: String(format: "%.1f", todaySleepHours),
+                            label: "hrs sleep",
+                            color: .purple
+                        )
                     }
                     
                     HStack(spacing: 16) {
-                        StatBadge(icon: "flame.fill", value: "\(todayCalories)", label: "calories", color: .orange)
-                        StatBadge(icon: "figure.run", value: "\(todayActivityDuration)", label: "min activity", color: .green)
+                        StatBadge(
+                            icon: "flame.fill",
+                            value: "\(todayCalories)",
+                            label: "calories",
+                            color: .orange
+                        )
+                        StatBadge(
+                            icon: "figure.run",
+                            value: "\(todayActivityDuration)",
+                            label: "min activity",
+                            color: .green
+                        )
                     }
                     
-                    // Charts
+                    // Charts (still show recent entries, independent of selected date)
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Activity Duration (min)")
                             .font(.headline)
@@ -119,3 +166,4 @@ struct DashboardView: View {
         }
     }
 }
+
